@@ -1,8 +1,8 @@
 /**
  * Coded by i4k
- * Fork of the linux kernel 3.4.4 algorithm to load a ELF binary. I stripped the
- * logic of prepare the stack and VM to execute the ELF and I focused in the 
- * tests that the kernel make to ensure ELF consistency.
+ * Rewrite of the algorithm used in linux kernel 3.4.4 (fs/binfmt_elf.c) to load
+ * a ELF binary. I stripped the logic of prepare the stack and VM to execute the
+ * ELF and I focused in the tests that the kernel make to ensure ELF consistency.
  */
 
 #include <stdio.h>
@@ -61,17 +61,15 @@
 typedef uint8_t _u8;
 
 struct linux_binprm {
-	_u8* mem;
-	int file;
-	int argc, envc;
-	char filename[FILENAME_MAX];	/* Name of binary as seen by procps */
-	char interp[FILENAME_MAX];	/* Name of the binary really executed. Most
-				   of the time same as filename, but could be
-				   different for binfmt_{misc,script} */
-	unsigned interp_flags;
-	unsigned interp_data;
-	struct stat st_info;
-	unsigned long loader, exec;
+ _u8* mem;
+ int file;
+ int argc, envc;
+ char filename[FILENAME_MAX];
+ char interp[FILENAME_MAX];
+ unsigned interp_flags;
+ unsigned interp_data;
+ struct stat st_info;
+ unsigned long loader, exec;
 };
 
 #define SAY(fmt...) fprintf(stdout, fmt)
@@ -104,54 +102,54 @@ int load_elf_binary(struct linux_binprm* bprm) {
     _u8* interp_buf = NULL;
     unsigned int size;
     unsigned long elf_bss, elf_brk;
-   	unsigned long load_bias = 0;
-	char * elf_interpreter = NULL;
+       unsigned long load_bias = 0;
+    char * elf_interpreter = NULL;
     ElfW(Phdr) *elf_phdata, *elf_ppnt;
-	unsigned long start_code, end_code, start_data, end_data;
-	int executable_stack = EXSTACK_DEFAULT;
-   	struct {
-		ElfW(Ehdr) elf_ex;
-		ElfW(Ehdr) interp_elf_ex;
-	} *loc;
-	
-	loc = malloc(sizeof(*loc));
-	if (!loc) {
-	    SAY_ERR("[-] error allocating memory\n");
-	    exit(1);
-	}
-	
-	loc->elf_ex = *((ElfW(Ehdr) *) bprm->mem);
-	
-	/* Checagem básica para verificar se é ELF */
-	if (memcmp(loc->elf_ex.e_ident, ELFMAG, SELFMAG) != 0) {
-	    SAY_ERR("[-] Not a ELF file...\n");
-	    goto out;
-	}
-	
-	/* Verifica se é do tipo EXEC ou DYN */
+    unsigned long start_code, end_code, start_data, end_data;
+    int executable_stack = EXSTACK_DEFAULT;
+       struct {
+        ElfW(Ehdr) elf_ex;
+        ElfW(Ehdr) interp_elf_ex;
+    } *loc;
+    
+    loc = malloc(sizeof(*loc));
+    if (!loc) {
+        SAY_ERR("[-] error allocating memory\n");
+        exit(1);
+    }
+    
+    loc->elf_ex = *((ElfW(Ehdr) *) bprm->mem);
+    
+    /* Checagem básica para verificar se é ELF */
+    if (memcmp(loc->elf_ex.e_ident, ELFMAG, SELFMAG) != 0) {
+        SAY_ERR("[-] Not a ELF file...\n");
+        goto out;
+    }
+    
+    /* Verifica se é do tipo EXEC ou DYN */
     if (loc->elf_ex.e_type != ET_EXEC && loc->elf_ex.e_type != ET_DYN) {
         goto out;
     }
     
- 	/* Agora lê todas as informações do header */
-	if (loc->elf_ex.e_phentsize != sizeof(ElfW(Phdr)))
-		goto out;
-	if (loc->elf_ex.e_phnum < 1 ||
-	 	loc->elf_ex.e_phnum > 65536U / sizeof(ElfW(Phdr)))
-		goto out;
-		
-	size = loc->elf_ex.e_phnum * sizeof(ElfW(Phdr));
-	
-	SAY("PHDR size = %u\n", size);
-	retval = -ENOMEM;
-	elf_phdata = malloc(size);
-	if (!elf_phdata) {
-	    goto out;
-	}
-	
+     /* Agora lê todas as informações do header */
+    if (loc->elf_ex.e_phentsize != sizeof(ElfW(Phdr)))
+        goto out;
+    if (loc->elf_ex.e_phnum < 1 ||
+         loc->elf_ex.e_phnum > 65536U / sizeof(ElfW(Phdr)))
+        goto out;
+        
+    size = loc->elf_ex.e_phnum * sizeof(ElfW(Phdr));
+    
+    SAY("PHDR size = %u\n", size);
+    retval = -ENOMEM;
+    elf_phdata = malloc(size);
+    if (!elf_phdata) {
+        goto out;
+    }
+    
     elf_phdata = (ElfW(Phdr)*) (bprm->mem + loc->elf_ex.e_phoff);
     elf_ppnt = elf_phdata;
-	elf_bss = 0;
+    elf_bss = 0;
 	elf_brk = 0;
 	
 	start_code = ~0UL;
