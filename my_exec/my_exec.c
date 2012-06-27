@@ -225,8 +225,7 @@ int load_elf_binary(struct linux_binprm* bprm) {
       goto out_free_dentry;
   }
 	
-  /* Now we do a little grungy work by mmapping the ELF image into
-     the correct location in memory. */	
+  /* Here the kernel should map the elf image to memory */	
   for(i = 0, elf_ppnt = elf_phdata;
       i < loc->elf_ex.e_phnum; i++, elf_ppnt++) {
     int elf_prot = 0, elf_flags;
@@ -251,11 +250,6 @@ int load_elf_binary(struct linux_binprm* bprm) {
     if (loc->elf_ex.e_type == ET_EXEC) {
       elf_flags |= MAP_FIXED;
     } else if (loc->elf_ex.e_type == ET_DYN) {
-      /* Try and get dynamic programs out of the way of the
-       * default mmap base, as well as whatever program they
-       * might try to exec.  This is because the brk will
-       * follow the loader, and is not movable.  */
-
       load_bias = ELF_PAGESTART(ELF_ET_DYN_BASE - vaddr);
     }
 
@@ -305,7 +299,6 @@ int load_elf_binary(struct linux_binprm* bprm) {
   SAY("end_data = 0x%08lx\n", end_data);
 
   retval = 0;
-  SAY("[+] successfull loaded!\n");
   goto out_ret;
 	
  out:
